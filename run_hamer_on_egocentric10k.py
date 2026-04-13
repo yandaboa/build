@@ -38,6 +38,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--continue-on-error", action="store_true")
     parser.add_argument("--export-overlay-video", action="store_true")
     parser.add_argument("--save-pose", action="store_true")
+    parser.add_argument(
+        "--save-pose-metadata",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Save source/sampled frame metadata into each *_pose.npz file.",
+    )
     parser.add_argument("--save-images", action="store_true")
     parser.add_argument(
         "--stream-video-inference",
@@ -76,6 +82,7 @@ def main() -> int:
         batch_size=args.batch_size,
         body_detector=args.body_detector,
         save_pose=args.save_pose,
+        save_pose_metadata=args.save_pose_metadata,
         save_images=args.save_images,
         fps=args.fps,
         max_frames=args.max_frames,

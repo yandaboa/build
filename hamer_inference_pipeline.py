@@ -18,6 +18,7 @@ class HamerInferencePipeline:
         batch_size: int,
         body_detector: str,
         save_pose: bool,
+        save_pose_metadata: bool,
         save_images: bool,
         fps: float,
         max_frames: int,
@@ -29,6 +30,7 @@ class HamerInferencePipeline:
         self.batch_size = batch_size
         self.body_detector = body_detector
         self.save_pose = save_pose
+        self.save_pose_metadata = save_pose_metadata
         self.save_images = save_images
         self.fps = fps
         self.max_frames = max_frames
@@ -104,6 +106,8 @@ class HamerInferencePipeline:
         ]
         if self.save_pose:
             command.append("--save_pose")
+        if self.save_pose and self.save_pose_metadata:
+            command.append("--save_pose_metadata")
         if self.save_images:
             command.append("--save_vis")
         if self.checkpoint is not None:
@@ -134,6 +138,8 @@ class HamerInferencePipeline:
         ]
         if self.save_pose:
             command.append("--save_pose")
+        if self.save_pose and self.save_pose_metadata:
+            command.append("--save_pose_metadata")
         if self.save_images:
             command.append("--save_vis")
         if self.checkpoint is not None:

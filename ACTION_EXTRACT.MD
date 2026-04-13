@@ -55,10 +55,10 @@ With defaults:
 - `_done.txt`  
   Marker file for resume/skip logic.
 
-- `frame_XXXXXX_<person_id>.obj`  
-  Hand mesh per detected hand/person.
+- `frame_XXXXXX_<hand_idx>.obj`  
+  Hand mesh per detected hand in that sampled frame.
 
-- `frame_XXXXXX_<person_id>.png`  
+- `frame_XXXXXX_<hand_idx>.png`  
   Patch + rendered hand visualization.
 
 - `frame_XXXXXX_all.jpg`  
@@ -67,8 +67,11 @@ With defaults:
 - `overlay.mp4` (if `--export-overlay-video`)  
   Video assembled from `*_all.jpg`.
 
-- `frame_XXXXXX_<person_id>_pose.npz` (if `--save-pose`)  
+- `frame_XXXXXX_<hand_idx>_pose.npz` (if `--save-pose`)  
   Pose and camera outputs per detected hand.
+
+- `state_frames/frame_XXXXXX.jpg` (after running frame export/backfill utilities)  
+  Observation image paired to that sampled frame index.
 
 ## 3) Pose NPZ Data Format
 
@@ -97,6 +100,26 @@ Each `*_pose.npz` contains:
 
 - `is_right`: scalar-like value  
   Handedness flag.
+
+When `--save-pose-metadata` is enabled (default in `run_hamer_on_egocentric10k.py`), pose files also include:
+
+- `sampled_frame_index`: scalar int  
+  Sampled frame number used in output naming (`frame_XXXXXX`).
+
+- `source_frame_index`: scalar int  
+  Original source-video frame index before FPS sampling.
+
+- `source_fps`: scalar float  
+  FPS reported by the video decoder.
+
+- `sample_every`: scalar int  
+  Sampling stride used (`source_frame_index % sample_every == 0`).
+
+- `source_timestamp_sec`: scalar float  
+  `source_frame_index / source_fps`.
+
+- `state_frame_name`: scalar string  
+  Expected paired observation filename (typically `frame_XXXXXX.jpg`).
 
 ## 4) Required Assets
 
@@ -128,7 +151,8 @@ Current setup expects:
   --batch-size 8 \
   --continue-on-error \
   --export-overlay-video \
-  --save-pose
+  --save-pose \
+  --save-pose-metadata
 ```
 
 ### Small smoke test
@@ -143,6 +167,7 @@ Current setup expects:
   --overwrite \
   --export-overlay-video \
   --save-pose \
+  --save-pose-metadata \
   --output-root /workspace/build/egocentric10k_hamer_meshes_test2 \
   --work-root /workspace/build/egocentric10k_hamer_work_test2
 ```
@@ -159,8 +184,49 @@ print("global_orient", d["global_orient"].shape)
 print("hand_pose", d["hand_pose"].shape)
 print("betas", d["betas"].shape)
 print("pred_keypoints_3d", d["pred_keypoints_3d"].shape)
+print("state_frame_name", d.get("state_frame_name", "<missing>"))
 PY
 ```
+
+### Save paired observation frames (without re-running HaMeR)
+
+Use this when pose files already exist and you want `state_frames/frame_XXXXXX.jpg` next to them.
+
+```bash
+/workspace/build/.venv_hand/bin/python /workspace/build/save_hamer_action_frames.py \
+  --data-root /workspace/build/egocentric10k_data \
+  --action-root /workspace/build/egocentric10k_hamer_meshes \
+  --work-root /workspace/build/egocentric10k_hamer_work \
+  --fps 5
+```
+
+### Backfill metadata + paired frames for old pose files
+
+Use this for older outputs that were extracted before metadata existed.
+
+```bash
+/workspace/build/.venv_hand/bin/python /workspace/build/backfill_hamer_pose_metadata.py \
+  --data-root /workspace/build/egocentric10k_data \
+  --action-root /workspace/build/egocentric10k_hamer_meshes \
+  --work-root /workspace/build/egocentric10k_hamer_work \
+  --fps 5 \
+  --save-debug-images \
+  --max-debug-images 5
+```
+
+Debug outputs are saved under `debug_overlays/` (max 5 by default), showing pose-derived overlays on paired state images for quick consistency checks.
+
+### One-off cleanup for duplicate detections in a directory
+
+If a directory was re-generated repeatedly and contains too many hand indices per frame, keep only index `0` and `1`:
+
+```bash
+python /workspace/build/prune_extra_hand_detections.py --dry-run
+python /workspace/build/prune_extra_hand_detections.py
+```
+
+Default target is:
+`/workspace/build/egocentric10k_hamer_meshes/factory_001/workers/worker_001/factory001_worker001_part00/factory001_worker001_00000`
 
 ## 6) Robot Action Space vs Extracted Signals
 
@@ -207,3 +273,20 @@ This is the practical mapping from extracted terms to robot control relevance.
 - Policy-learning observations:
   - Use `pred_keypoints_3d` or retargeted joint targets as observations.
   - Output robot-native commands (joint position/velocity/torque), not raw MANO params directly.
+
+## 8) Training Dataset Format (State/Action Pairing)
+
+`build/egocentric10k_action_dataset.py` now returns frame-level samples:
+
+- `state`  
+  RGB tensor from `state_frames/frame_XXXXXX.jpg`.
+
+- `action`  
+  Concatenated tensor as:
+  `[left_hand_action_dims, right_hand_action_dims]`
+
+Per-hand action dims are flattened from configured keys (default: `global_orient`, `hand_pose`).
+
+If only one hand exists for a frame:
+- `is_right == 0`: fills left action, right action is zero-padded.
+- `is_right == 1`: fills right action, left action is zero-padded.
