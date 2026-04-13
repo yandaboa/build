@@ -1,0 +1,3 @@
+[submodule "Hand-Texture-Module"]
+	path = Hand-Texture-Module
+	url = https://github.com/gkarv/Hand-Texture-Module.git

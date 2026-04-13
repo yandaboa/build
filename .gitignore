@@ -1,0 +1,19 @@
+.venv/
+.venv_hand/
+__pycache__/
+*.pyc
+
+# Large artifacts
+Hand-Texture-Module/hamer_demo_data.tar.gz
+Hand-Texture-Module/_DATA/
+egocentric10k/
+egocentric10k_data/
+
+egocentric10k_hamer_meshes/
+egocentric10k_hamer_work/
+egocentric10k_hamer_work_test/
+
+# cache artifacts
+*.pyc
+
+/workspace/build/egocentric10k_hamer_meshes_test2/
